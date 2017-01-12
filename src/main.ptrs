@@ -1,0 +1,170 @@
+import strcmp, strcpy, strlen, memcpy, memset, free, fopen, fprintf, fflush;
+import gtk_* from "libgtk-3.so.0";
+
+const PTRSSTUFF = "../../PtrsStuff/libs";
+import HTTP from "$PTRSSTUFF/curl.ptrs";
+import TypedArray from "$PTRSSTUFF/array.ptrs";
+
+import fuse_main, fuse_opt_parse, fuse_args, fuse_file_info, fuse_operations from "./fuse.ptrs";
+
+const GDK_SELECTION_CLIPBOARD = 69;
+var argc = 0;
+var argv = NULL;
+gtk_init(&argc, &argv);
+
+const ENOENT = 2;//2;
+const S_IFDIR = 16384;
+const S_IFREG = 32768;
+
+const STAT_SIZE = 144;
+struct stat
+{
+	dev : u64;
+	ino : u64;
+	nlink : u64;
+	mode : u32;
+	uid : u32;
+	gid : u32;
+	pad0 : int;
+	rdev : u64;
+	size : u64;
+
+	//...
+};
+
+var log = fopen("log.txt", "w+");
+
+const CLIPBOARD_PATH = "/URL from Clipboard";
+var connection = false;
+var ops : fuse_operations();
+memset(ops, 0, sizeof(fuse_operations));
+
+var lastUrl = new array{4096};
+var data = null;
+var isReleased = true;
+
+ops.getattr = cast<native>function(path, stbuf)
+{
+	fprintf(log, "%8s | %s\n", "getattr", path);
+
+	memset(stbuf, STAT_SIZE, 0);
+	var buff = (as<native>stbuf)[0 .. STAT_SIZE];
+	stbuf = cast_stack<stat>stbuf;
+
+	if(strcmp(path, "/") == 0)
+	{
+		stbuf.mode = S_IFDIR | 0755;
+		stbuf.nlink = 2;
+	}
+	else if(strcmp(path, CLIPBOARD_PATH) == 0)
+	{
+		stbuf.mode = S_IFREG | 0444;
+		stbuf.nlink = 1;
+
+		if(data)
+			stbuf.size = sizeof data.body;
+		else
+			stbuf.size = 0; //TODO what size should we put here?
+	}
+	else
+	{
+		return -ENOENT;
+	}
+
+	return 0;
+};
+ops.readdir = cast<native>function(path, buf, filler)
+{
+	fprintf(log, "%8s | %s\n", "readdir", path);fflush(log);
+	filler = as<native>filler;
+
+	if(strcmp(path, "/") != 0)
+		return -ENOENT;
+
+	filler(buf, ".", NULL, 0);
+	filler(buf, "..", NULL, 0);
+	filler(buf, CLIPBOARD_PATH + 1, NULL, 0);
+	return 0;
+};
+ops.open = cast<native>function(path, file)
+{
+	fprintf(log, "%8s | %s\n", "open", path);fflush(log);
+	var url;
+	if(strcmp(path, CLIPBOARD_PATH) == 0)
+		url = gtk_clipboard_wait_for_text!native(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD));
+	else
+		return -ENOENT;
+
+	var ret;
+	if(strcmp(url, lastUrl) == 0)
+	{
+		fprintf(log, "reopening same url\n");fflush(log);
+		if(isReleased)
+			isReleased = false;
+		ret = 0;
+	}
+	else if(!isReleased)
+	{
+		fprintf(log, "cannot open, not released\n");fflush(log);
+		ret = -ENOENT;
+	}
+	else
+	{
+		fprintf(log, "opening %s\n", url);fflush(log);
+		if(data != null)
+			delete data;
+
+		ret = 0;
+		try
+		{
+			data = HTTP.GET(url);
+			data.body = data.body[0 .. strlen(data.body)];
+
+			strcpy(lastUrl, url);
+			isReleased = false;
+		}
+		catch(err, trace)
+		{
+			fprintf(log, "%s\n%s\n", err, trace);
+			fflush(log);
+			ret = -ENOENT;
+		}
+	}
+
+	free(url);
+	return ret;
+};
+ops.release = cast<native>function(path, file)
+{
+	fprintf(log, "%8s | %s\n", "release", path); fflush(log);
+	isReleased = true;
+};
+ops.read = cast<native>function(path, buf, size, offset, file)
+{
+	fprintf(log, "%8s | %d %p %s\n", "read", isReleased, data, path);fflush(log);
+
+	if(isReleased || data == null)
+		return -ENOENT;
+
+	if(strcmp(path, CLIPBOARD_PATH) != 0)
+		return -ENOENT;
+
+	var actual;
+	if(offset + size > sizeof data.body)
+	 	actual = sizeof data.body - offset;
+	else
+		actual = size;
+
+	if(actual <= 0)
+		return -ENOENT;
+
+	memcpy(buf, data.body, actual);
+	return actual;
+};
+
+var args = new TypedArray(sizeof arguments + 1, "native");
+args[0] = "httpfs";
+foreach(i, val in arguments)
+	args[i + 1] = val;
+
+return fuse_main(sizeof args, args.memory, ops);

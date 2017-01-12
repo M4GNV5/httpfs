@@ -1,0 +1,72 @@
+import fuse_main_real, fuse_opt_parse from "libfuse.so";
+
+function fuse_main(argc, argv, op, data = NULL)
+{
+	return fuse_main_real(argc, argv, op, sizeof op, data);
+}
+
+struct fuse_args
+{
+	argc : int;
+	argv : native;
+	allocated : int;
+};
+
+struct fuse_file_info
+{
+	flags : int;
+	fh_old : ulong;
+	writepage : int;
+	extraFlags : uint; //bitfield: direct_io:1;keep_cache:1;flush:1;nonseekable:1;flock_release:1;padding:27;
+	fh : u64;
+	lock_owner : u64;
+};
+
+struct fuse_operations
+{
+	getattr : native; //int (const char *, struct stat *);
+	readlink : native; //int (const char *, char *, size_t);
+	getdir : native; //int (const char *, fuse_dirh_t, fuse_dirfil_t);
+	mknod : native; //int (const char *, mode_t, dev_t);
+	mkdir : native; //int (const char *, mode_t);
+	unlink : native; //int (const char *);
+	rmdir : native; //int (const char *);
+	symlink : native; //int (const char *, const char *);
+	rename : native; //int (const char *, const char *);
+	link : native; //int (const char *, const char *);
+	chmod : native; //int (const char *, mode_t);
+	chown : native; //int (const char *, uid_t, gid_t);
+	truncate : native; //int (const char *, off_t);
+	utime : native; //int (const char *, struct utimbuf *);
+	open : native; //int (const char *, struct fuse_file_info *);
+	read : native; //int (const char *, char *, size_t, off_t, struct fuse_file_info *);
+	write : native; //int (const char *, const char *, size_t, off_t, struct fuse_file_info *);
+	statfs : native; //int (const char *, struct statvfs *);
+	flush : native; //int (const char *, struct fuse_file_info *);
+	release : native; //int (const char *, struct fuse_file_info *);
+	fsync : native; //int (const char *, int, struct fuse_file_info *);
+	setxattr : native; //int (const char *, const char *, const char *, size_t, int);
+	getxattr : native; //int (const char *, const char *, char *, size_t);
+	listxattr : native; //int (const char *, char *, size_t);
+	removexattr : native; //int (const char *, const char *);
+	opendir : native; //int (const char *, struct fuse_file_info *);
+	readdir : native; //int (const char *, void *, fuse_fill_dir_t, off_t, struct fuse_file_info *);
+	releasedir : native; //int (const char *, struct fuse_file_info *);
+	fsyncdir : native; //int (const char *, int, struct fuse_file_info *);
+	init : native; //void *(struct fuse_conn_info *conn);
+	destroy : native; //void (void *);
+	access : native; //int (const char *, int);
+	create : native; //int (const char *, mode_t, struct fuse_file_info *);
+	ftruncate : native; //int (const char *, off_t, struct fuse_file_info *);
+	fgetattr : native; //int (const char *, struct stat *, struct fuse_file_info *);
+	lock : native; //int (const char *, struct fuse_file_info *, int cmd, struct flock *);
+	utimens : native; //int (const char *, const struct timespec tv[2]);
+	bmap : native; //int (const char *, size_t blocksize, uint64_t *idx);
+	flags : uint; //bitfield: flag_nullpath_ok:1;flag_nopath:1;flag_utime_omit_ok:1;lag_reserved:29;
+	ioctl : native; //int (const char *, int cmd, void *arg, struct fuse_file_info *, unsigned int flags, void *data);
+	poll : native; //int (const char *, struct fuse_file_info *, struct fuse_pollhandle *ph, unsigned *reventsp);
+	write_buf : native; //int (const char *, struct fuse_bufvec *buf, off_t off, struct fuse_file_info *);
+	read_buf : native; //int (const char *, struct fuse_bufvec **bufp, size_t size, off_t off, struct fuse_file_info *);
+	flock : native; //int (const char *, struct fuse_file_info *, int op);
+	fallocate : native; //int (const char *, int, off_t, off_t, struct fuse_file_info *);
+};
