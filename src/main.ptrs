@@ -118,7 +118,6 @@ ops.open = cast<native>function(path, file)
 		try
 		{
 			data = HTTP.GET(url);
-			data.body = data.body[0 .. strlen(data.body)];
 
 			strcpy(lastUrl, url);
 			isReleased = false;
@@ -136,12 +135,12 @@ ops.open = cast<native>function(path, file)
 };
 ops.release = cast<native>function(path, file)
 {
-	fprintf(log, "%8s | %s\n", "release", path); fflush(log);
+	fprintf(log, "%8s | %s\n", "release", path);fflush(log);
 	isReleased = true;
 };
 ops.read = cast<native>function(path, buf, size, offset, file)
 {
-	fprintf(log, "%8s | %d %p %s\n", "read", isReleased, data, path);fflush(log);
+	fprintf(log, "%8s | %d %p %s\n", "read", size, data, path);fflush(log);
 
 	if(isReleased || data == null)
 		return -ENOENT;
