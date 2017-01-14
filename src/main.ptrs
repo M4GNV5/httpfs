@@ -16,7 +16,6 @@ const ENOENT = 2;//2;
 const S_IFDIR = 16384;
 const S_IFREG = 32768;
 
-const STAT_SIZE = 144;
 struct stat
 {
 	dev : u64;
@@ -30,6 +29,12 @@ struct stat
 	size : u64;
 
 	//...
+
+	//fake sizeof so we dont have to define all members
+	operator sizeof this
+	{
+		return 144;
+	}
 };
 
 var log = fopen("log.txt", "w+");
@@ -47,8 +52,7 @@ ops.getattr = cast<native>function(path, stbuf)
 {
 	fprintf(log, "%8s | %s\n", "getattr", path);
 
-	memset(stbuf, STAT_SIZE, 0);
-	var buff = (as<native>stbuf)[0 .. STAT_SIZE];
+	memset(stbuf, sizeof stat, 0);
 	stbuf = cast_stack<stat>stbuf;
 
 	if(strcmp(path, "/") == 0)
