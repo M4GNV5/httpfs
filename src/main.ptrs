@@ -12,7 +12,8 @@ var argc = 0;
 var argv = NULL;
 gtk_init(&argc, &argv);
 
-const ENOENT = 2;//2;
+const ENOENT = 2;
+const EAGAIN = 11;
 const S_IFDIR = 16384;
 const S_IFREG = 32768;
 
@@ -110,7 +111,7 @@ ops.open = cast<native>function(path, file)
 	else if(!isReleased)
 	{
 		fprintf(log, "cannot open, not released\n");fflush(log);
-		ret = -ENOENT;
+		ret = -EAGAIN;
 	}
 	else
 	{
@@ -130,7 +131,7 @@ ops.open = cast<native>function(path, file)
 		{
 			fprintf(log, "%s\n%s\n", err, trace);
 			fflush(log);
-			ret = -ENOENT;
+			ret = -EAGAIN;
 		}
 	}
 
