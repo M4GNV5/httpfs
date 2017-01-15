@@ -49,6 +49,36 @@ var lastUrl = new array{4096};
 var data = null;
 var isReleased = true;
 
+function getClipboard()
+{
+	var clip = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+	return gtk_clipboard_wait_for_text!native(clip);
+}
+function loadData(url = null)
+{
+	if(!url)
+		url = getClipboard();
+
+	if(data)
+		delete data;
+
+	try
+	{
+		data = HTTP.GET(url);
+		strcpy(lastUrl, url);
+
+		return true;
+	}
+	catch(err, trace)
+	{
+		fprintf(log, "%s\n%s\n", err, trace);
+		fflush(log);
+
+		data = null;
+		return false;
+	}
+}
+
 ops.getattr = cast<native>function(path, stbuf)
 {
 	fprintf(log, "%8s | %s\n", "getattr", path);
@@ -66,10 +96,13 @@ ops.getattr = cast<native>function(path, stbuf)
 		stbuf.mode = S_IFREG | 0444;
 		stbuf.nlink = 1;
 
-		if(data)
-			stbuf.size = sizeof data.body;
-		else
-			stbuf.size = 0; //TODO what size should we put here?
+		if(isReleased)
+			loadData();
+
+		if(data == null)
+			return -EAGAIN;
+
+		stbuf.size = sizeof data.body;
 	}
 	else
 	{
@@ -96,7 +129,7 @@ ops.open = cast<native>function(path, file)
 	fprintf(log, "%8s | %s\n", "open", path);fflush(log);
 	var url;
 	if(strcmp(path, CLIPBOARD_PATH) == 0)
-		url = gtk_clipboard_wait_for_text!native(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD));
+		url = getClipboard();
 	else
 		return -ENOENT;
 
@@ -116,23 +149,13 @@ ops.open = cast<native>function(path, file)
 	else
 	{
 		fprintf(log, "opening %s\n", url);fflush(log);
-		if(data != null)
-			delete data;
 
-		ret = 0;
-		try
+		if(loadData())
 		{
-			data = HTTP.GET(url);
-
-			strcpy(lastUrl, url);
 			isReleased = false;
+			return 0;
 		}
-		catch(err, trace)
-		{
-			fprintf(log, "%s\n%s\n", err, trace);
-			fflush(log);
-			ret = -EAGAIN;
-		}
+		return -EAGAIN;
 	}
 
 	free(url);
